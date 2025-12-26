@@ -1,13 +1,16 @@
 FROM python:3.10-slim
 
-# system deps
-RUN apt-get update && apt-get install -y ffmpeg \
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libopus0 \
+    libopus-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY . .
 
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 CMD ["python", "main.py"]
