@@ -1,0 +1,67 @@
+from pyrogram import Client
+from pytgcalls import PyTgCalls
+
+from config import API_ID, API_HASH, BOT_TOKEN
+
+# handlers
+from handlers import (
+    commands,
+    callbacks,
+    help as help_handler,
+    admin,
+    welcome
+)
+
+# recovery / background tasks
+from features.recovery import auto_cleanup
+import asyncio
+
+
+# ─────────────────────────────────────────────
+# Pyrogram Client
+# ─────────────────────────────────────────────
+app = Client(
+    "musicbot",
+    api_id=30093255,
+    api_hash=264c22339646ea1341c490eefbc28afd,
+    bot_token=8160732834:AAGQQHlArcH1Hlz_57URYGlB4fNWLOnu20Q
+)
+
+# ─────────────────────────────────────────────
+# PyTgCalls (Voice Chat)
+# ─────────────────────────────────────────────
+vc = PyTgCalls(app)
+
+
+# ─────────────────────────────────────────────
+# Register handlers
+# ─────────────────────────────────────────────
+commands.register(app, vc)      # /play, /queue, etc.
+callbacks.register(app, vc)     # inline buttons
+help_handler.register(app)      # /help
+admin.register(app)             # /addsudo /removesudo /sudolist /maintenance
+welcome.register(app)           # auto welcome on join
+
+
+# ─────────────────────────────────────────────
+# Background tasks (auto cleanup, stability)
+# ─────────────────────────────────────────────
+async def start_background_tasks():
+    asyncio.create_task(auto_cleanup(vc))
+
+
+# ─────────────────────────────────────────────
+# Start bot
+# ─────────────────────────────────────────────
+async def main():
+    await app.start()
+    await vc.start()
+    await start_background_tasks()
+    print("🔥 HQ Music Bot is ONLINE")
+    await idle()
+
+
+from pyrogram import idle
+
+if __name__ == "__main__":
+    asyncio.get_event_loop().run_until_complete(main())
