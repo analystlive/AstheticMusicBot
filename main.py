@@ -1,7 +1,7 @@
 import os
 import asyncio
+
 from pyrogram import Client, filters
-from pyrogram.types import ChatMemberUpdated
 from pytgcalls import PyTgCalls
 from pytgcalls.types import AudioPiped
 from yt_dlp import YoutubeDL
@@ -39,25 +39,23 @@ app = Client(
 
 pytg = PyTgCalls(app)
 
-# ================= START =================
+# ================= COMMANDS =================
 
 @app.on_message(filters.command("start"))
 async def start(_, m):
-    await m.reply("🎵 **Aesthetic Music Bot is Alive**")
-
-# ================= PLAY =================
+    await m.reply("🎵 Aesthetic Music Bot is Live")
 
 @app.on_message(filters.command("play") & filters.group)
 async def play(_, m):
     if not m.from_user or not is_sudo(m.from_user.id):
-        return await m.reply("❌ You are not allowed.")
+        return await m.reply("❌ Permission denied")
 
     if len(m.command) < 2:
         return await m.reply("Usage: /play song")
 
     query = " ".join(m.command[1:])
-
     ydl_opts = {"format": "bestaudio", "quiet": True}
+
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(f"ytsearch:{query}", download=False)
         url = info["entries"][0]["url"]
@@ -68,43 +66,19 @@ async def play(_, m):
         AudioPiped(url)
     )
 
-    await m.reply(f"▶️ **Now Playing:** `{title}`")
-
-# ================= ADD SUDO =================
+    await m.reply(f"▶️ Playing: `{title}`")
 
 @app.on_message(filters.command("addsudo"))
 async def addsudo(_, m):
     if not m.from_user or not is_owner(m.from_user.id):
         return
-
     uid = int(m.command[1])
     sudo_db.insert_one({"uid": uid})
     await m.reply(f"✅ `{uid}` added as sudo")
 
-# ================= INFO =================
-
 @app.on_message(filters.command("info"))
 async def info(_, m):
-    await m.reply(
-        "👑 Owner: @notprism\n"
-        "🆔 ID: 8247235878"
-    )
-
-# ================= WELCOME =================
-
-@app.on_chat_member_updated()
-async def welcome(_, u: ChatMemberUpdated):
-    if u.new_chat_member and not u.old_chat_member:
-        user = u.new_chat_member.user
-        await app.send_message(
-            u.chat.id,
-            f"""
-✨ **Welcome to our family** ✨
-
-👤 Name: **{user.first_name}**
-🆔 ID: `{user.id}`
-"""
-        )
+    await m.reply("👑 Owner: @notprism\n🆔 ID: 8247235878")
 
 # ================= RUN =================
 
