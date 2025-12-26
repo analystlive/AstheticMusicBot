@@ -1,6 +1,7 @@
 import asyncio
-from pyrogram import Client, idle
-from pytgcalls import PyTgCalls
+from pytgcalls import PyTgCallsClient
+
+vc = PyTgCallsClient(app)
 
 # Config (env se values uthti hain)
 from config import API_ID, API_HASH, BOT_TOKEN
