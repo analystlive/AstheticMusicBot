@@ -1,109 +1,123 @@
 import os
 import asyncio
-from pyrogram import Client, filters
-from pyrogram.types import (
-    Message,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton
-)
 
-# ================= ENV =================
+from pyrogram import Client, filters
+from pyrogram.types import Message
+
+from pytgcalls import PyTgCalls
+from pytgcalls.types.input_stream import AudioPiped
+
+from yt_dlp import YoutubeDL
+
+# ================== CONFIG ==================
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+SESSION_STRING = os.getenv("SESSION_STRING")
 
-# ================= BOT =================
-app = Client(
-    "aesthetic-bot",
+OWNER_ID = 8427235878  # अपना ID डालो
+# ============================================
+
+# ================== CLIENTS ==================
+bot = Client(
+    "AestheticMusicBot",
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN
 )
 
-# ================= OWNER / ADMIN =================
-OWNER_ID = 8247235878
-ADMIN_TAG = "@notprism"
-
-# ================= STYLISH FONT =================
-def fancy(text):
-    normal = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    fancy_ = "𝒶𝒷𝒸𝒹𝑒𝒻𝓰𝒽𝒾𝒿𝓀𝓁𝓂𝓃𝓸𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏𝒜ℬ𝒞𝒟ℰℱ𝒢ℋℐ𝒥𝒦ℒℳ𝒩𝒪𝒫𝒬ℛ𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵0123456789"
-    return text.translate(str.maketrans(normal, fancy_))
-
-# ================= WELCOME IMAGE =================
-WELCOME_IMAGE = "https://i.imgur.com/6XGQ5ZB.jpg"
-GOODBYE_IMAGE = "https://i.imgur.com/QMZ8C0G.jpg"
-
-# ================= INLINE BUTTON =================
-buttons = InlineKeyboardMarkup(
-    [
-        [InlineKeyboardButton("✨ Admin", url=f"https://t.me/{ADMIN_TAG.replace('@','')}")],
-        [InlineKeyboardButton("💬 Support", url="https://t.me/telegram")]
-    ]
+user = Client(
+    SESSION_STRING,
+    api_id=API_ID,
+    api_hash=API_HASH
 )
 
-# ================= WELCOME =================
-@app.on_message(filters.new_chat_members)
-async def welcome(_, m: Message):
-    for user in m.new_chat_members:
-        name = user.first_name or "User"
-        uid = user.id
+pytg = PyTgCalls(user)
+# ============================================
 
-        text = f"""
-✨ 𝓦𝓔𝓛𝓒𝓞𝓜𝓔 𝓣𝓞 𝓞𝓤𝓡 𝓖𝓡𝓞𝓤𝓟 ✨
+# ================== YTDLP ====================
+ydl_opts = {
+    "format": "bestaudio/best",
+    "quiet": True,
+    "noplaylist": True
+}
+# ============================================
 
-👤 Name : {fancy(name)}
-🆔 User ID : {fancy(str(uid))}
 
-💖 Welcome to our family
-👑 Admin : {ADMIN_TAG}
-"""
+# ================== COMMANDS =================
 
-        await m.reply_photo(
-            photo=WELCOME_IMAGE,
-            caption=text,
-            reply_markup=buttons
+@bot.on_message(filters.command("start"))
+async def start(_, m: Message):
+    await m.reply(
+        "🎧 **Aesthetic Music Bot is Online**\n\n"
+        "▶️ `/play song name`\n"
+        "⏸ `/pause`\n"
+        "▶️ `/resume`\n"
+        "⏭ `/skip`\n"
+        "⛔ `/stop`"
+    )
+
+
+@bot.on_message(filters.command("play") & filters.group)
+async def play(_, m: Message):
+    if len(m.command) < 2:
+        return await m.reply("❌ Usage: `/play song name`")
+
+    query = " ".join(m.command[1:])
+    chat_id = m.chat.id
+
+    msg = await m.reply("🔎 Searching...")
+
+    try:
+        with YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(f"ytsearch:{query}", download=False)
+            data = info["entries"][0]
+            url = data["url"]
+            title = data["title"]
+
+        await pytg.join_group_call(
+            chat_id,
+            AudioPiped(url)
         )
 
-# ================= GOODBYE =================
-@app.on_message(filters.left_chat_member)
-async def goodbye(_, m: Message):
-    user = m.left_chat_member
-    name = user.first_name or "User"
+        await msg.edit(f"▶️ **Now Playing:** `{title}`")
 
-    text = f"""
-🥀 𝓖𝓞𝓞𝓓𝓑𝓨𝓔 🥀
+    except Exception as e:
+        await msg.edit(f"❌ Error:\n`{e}`")
 
-👤 {fancy(name)}
-😔 You will be missed
-"""
 
-    await m.reply_photo(
-        photo=GOODBYE_IMAGE,
-        caption=text
-    )
+@bot.on_message(filters.command("pause") & filters.group)
+async def pause(_, m: Message):
+    await pytg.pause_stream(m.chat.id)
+    await m.reply("⏸ Paused")
 
-# ================= START =================
-@app.on_message(filters.command("start"))
-async def start(_, m):
-    await m.reply("✅ Aesthetic Welcome Bot is Alive!")
 
-# ================= INFO =================
-@app.on_message(filters.command("info"))
-async def info(_, m):
-    await m.reply(
-        f"""
-👑 Owner : {ADMIN_TAG}
-🆔 User ID : {OWNER_ID}
-🤖 Status : Online
-"""
-    )
+@bot.on_message(filters.command("resume") & filters.group)
+async def resume(_, m: Message):
+    await pytg.resume_stream(m.chat.id)
+    await m.reply("▶️ Resumed")
 
-# ================= RUN =================
+
+@bot.on_message(filters.command("skip") & filters.group)
+async def skip(_, m: Message):
+    await pytg.leave_group_call(m.chat.id)
+    await m.reply("⏭ Skipped")
+
+
+@bot.on_message(filters.command("stop") & filters.group)
+async def stop(_, m: Message):
+    await pytg.leave_group_call(m.chat.id)
+    await m.reply("⛔ Stopped & Left VC")
+
+
+# ================== RUN ======================
 async def main():
-    await app.start()
-    print("🔥 BOT STARTED SUCCESSFULLY")
+    await bot.start()
+    await user.start()
+    await pytg.start()
+    print("✅ Aesthetic Music Bot Started")
     await asyncio.Event().wait()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
